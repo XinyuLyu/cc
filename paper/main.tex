@@ -1,0 +1,194 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2026_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+\input{math_commands.tex}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}       % Professional-quality tables
+\usepackage{amsfonts}       % Blackboard math symbols
+\usepackage{nicefrac}       % Compact symbols for 1/2, etc.
+\usepackage{microtype}      % Microtypography
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+% ---------------------------------------------------------------
+% PAPER METADATA
+% ---------------------------------------------------------------
+\title{[Paper Title]}
+
+% For blind review: do NOT include author information.
+% Uncomment \iclrfinalcopy and fill in authors for camera-ready.
+
+% \author{Author One$^{1}$ \quad Author Two$^{1}$ \quad Author Three$^{2}$ \\
+% $^{1}$Institution One \quad $^{2}$Institution Two \\
+% \texttt{\{author1, author2\}@institution1.edu} \quad
+% \texttt{author3@institution2.edu}
+% }
+
+% Uncomment for camera-ready version ONLY:
+%\iclrfinalcopy
+
+\newcommand{\method}{[MethodName]}   % replace with your method name
+
+% ---------------------------------------------------------------
+\begin{document}
+
+\maketitle
+
+% ---------------------------------------------------------------
+\begin{abstract}
+% 5-sentence formula (Farquhar / DeepMind):
+% 1. What you achieved: "We introduce / prove / demonstrate..."
+% 2. Why this is hard and important
+% 3. How you do it (with specialist keywords for discoverability)
+% 4. What evidence you have
+% 5. Your most remarkable number / result
+%
+% DELETE the line above before submission.
+[Abstract placeholder. Replace with 5-sentence abstract following the formula above.]
+\end{abstract}
+
+% ---------------------------------------------------------------
+\section{Introduction}
+
+% Goal: ≤ 1.5 pages. Must end with a contribution bullet list.
+%
+% Structure:
+%   - Problem statement (what problem do we solve and why it matters)
+%   - Gap in existing work (what is missing)
+%   - Our approach (brief, 2–3 sentences)
+%   - Contribution list (2–4 bullets, 1–2 lines each)
+%   - Paper organization (optional, 1 sentence per section)
+
+[Introduction placeholder.]
+
+\textbf{Contributions.} Our main contributions are:
+\begin{itemize}
+  \item We propose \method{}, which [contribution 1].
+  \item We demonstrate [contribution 2 / key result].
+  \item We provide [contribution 3, e.g., theoretical analysis / open-source code].
+\end{itemize}
+
+% ---------------------------------------------------------------
+\section{Related Work}
+
+% Organize methodologically, NOT paper-by-paper.
+% Good: "One line of work assumes X [refs]; we instead assume Y because..."
+% Bad: "A et al. do X. B et al. do Y."
+% Cite generously — reviewers likely authored relevant work.
+
+[Related work placeholder. Organize by research theme, not chronologically.]
+
+% ---------------------------------------------------------------
+\section{Method}
+
+% Enable reimplementation:
+%   - Conceptual outline or pseudocode
+%   - All hyperparameters listed explicitly
+%   - Architectural details sufficient for reproduction
+
+\subsection{Problem Setup}
+
+[Formal problem definition. State all assumptions before any theorem or claim.]
+
+\subsection{\method{}}
+
+[Core method description. Use pseudocode or algorithm environment if helpful.]
+
+% ---------------------------------------------------------------
+\section{Experiments}
+
+% For each experiment, state:
+%   1. What claim it supports
+%   2. How it connects to the main contribution
+%   3. Experimental setting (details may go to Appendix)
+%   4. What to observe: "the blue line shows X, which demonstrates Y"
+%
+% Requirements: error bars, \#seeds, compute (GPU type + hours), baselines.
+
+\subsection{Experimental Setup}
+
+[Datasets, baselines, evaluation metrics, compute resources.]
+
+\subsection{Main Results}
+
+[Main comparison table. Use booktabs. Bold best values. Include ↑/↓ for metrics.]
+
+\begin{table}[t]
+  \caption{[Table caption. Lower case except first word and proper nouns.]}
+  \label{tab:main}
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    Method & Metric A ↑ & Metric B ↑ & Metric C ↓ \\
+    \midrule
+    Baseline 1   & 00.0 & 00.0 & 00.0 \\
+    Baseline 2   & 00.0 & 00.0 & 00.0 \\
+    \midrule
+    \textbf{\method{} (Ours)} & \textbf{00.0} & \textbf{00.0} & \textbf{00.0} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Ablation Studies}
+
+[Ablation table. Each row removes / modifies one component.]
+
+% ---------------------------------------------------------------
+\section{Discussion}
+
+[Interpretation of results. Connection to the narrative / main claims.]
+
+% ---------------------------------------------------------------
+\section{Limitations}
+
+% REQUIRED by ICLR. Counter-intuitively, honesty helps:
+%   - Reviewers are instructed NOT to penalize honest limitations
+%   - Pre-empt criticisms by identifying weaknesses first
+%   - Explain why limitations do not undermine the core claims
+
+[Discuss at least 2–3 genuine limitations of the work.]
+
+% ---------------------------------------------------------------
+\section{Conclusion}
+
+[One paragraph. State the core contribution, main finding, and one forward-looking sentence.
+Do NOT introduce new claims here.]
+
+% ---------------------------------------------------------------
+% LLM USAGE DISCLOSURE (required by ICLR 2026)
+% ---------------------------------------------------------------
+\subsubsection*{LLM Usage Disclosure}
+
+[State which LLMs (if any) were used, and for what purpose
+(e.g., grammar checking, code generation). Required by ICLR 2026.]
+
+% ---------------------------------------------------------------
+\subsubsection*{Acknowledgments}
+
+Use unnumbered third-level headings for acknowledgments.
+All acknowledgments, including funding agencies, go here.
+
+% ---------------------------------------------------------------
+\bibliography{references}
+\bibliographystyle{iclr2026_conference}
+
+% ---------------------------------------------------------------
+\appendix
+
+\section{Implementation Details}
+
+[Hyperparameters, training details, compute infrastructure.]
+
+\section{Additional Experiments}
+
+[Extra ablations, sensitivity analyses, qualitative examples.]
+
+\section{Proofs}
+
+[Full proofs of any theoretical results in the main text.]
+
+\end{document}
