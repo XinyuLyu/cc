@@ -1,3 +1,8 @@
+---
+name: academic-plotting
+description: Generate publication-quality figures for ML/AI papers - architecture diagrams and matplotlib/seaborn data charts with venue-specific sizing and colorblind-safe palettes.
+---
+
 # Academic Plotting Tool
 
 Specialized tool for researchers creating publication-quality figures for ML/AI conference submissions.

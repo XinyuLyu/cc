@@ -1,3 +1,8 @@
+---
+name: systems-paper-writing
+description: Paragraph-level structural blueprints for 10-12 page systems papers targeting OSDI, SOSP, ASPLOS, NSDI, EuroSys.
+---
+
 # Systems Paper Writing: Paragraph-Level Structural Blueprint
 
 Fine-grained structural guidance for writing **10–12 page systems papers** targeting top systems venues: OSDI, SOSP, ASPLOS, NSDI, and EuroSys.

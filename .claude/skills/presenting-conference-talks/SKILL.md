@@ -1,3 +1,8 @@
+---
+name: presenting-conference-talks
+description: Generate conference presentation slides (Beamer LaTeX or PPTX) from research papers, with speaker notes and talk scripts.
+---
+
 # Presenting Conference Talks
 
 Generates conference presentation slides in Beamer LaTeX PDF and editable PPTX formats from research papers, complete with speaker notes and optional talk scripts.
