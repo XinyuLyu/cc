@@ -1,3 +1,8 @@
+---
+name: ml-paper-writing
+description: Write publication-ready ML papers for top venues (NeurIPS, ICML, ICLR, ACL, AAAI, COLM). Use for drafting abstracts, introductions, sections, narrative structure, and verifying citations.
+---
+
 # ML Paper Writing Skill Documentation
 
 This is a comprehensive guide for writing publication-ready machine learning papers for top-tier venues like NeurIPS, ICML, ICLR, ACL, AAAI, and COLM.
