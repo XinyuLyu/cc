@@ -51,12 +51,15 @@ If I give you my preliminary draft, skip steps 1–2 and go straight to rewritin
 | **Misunderstanding** | Correct head-on. "We did not claim X. Our text (Lines Y–Z) [contrasts / states / motivates] Y." If the misread is a well-known fact in the field, say so: "X is not our hypothesis—it is common knowledge in [field] community." |
 | **Missing experiment** | Run it (or placeholder). Table first, 1–2 sentence interpretation. |
 | **Missing baseline (code unavailable)** | State that code is not public → reproduce from paper → compare in table → explain why ours is better on the dimensions that matter. |
-| **Scope / design necessity** | One crisp sentence. "X is technically infeasible by definition—all [category] methods require [Y]. Black-box access provides neither [A] nor [B]." No apology. |
+| **Scope / design necessity — no new experiment** | One crisp sentence. "X is technically infeasible by definition—all [category] methods require [Y]." No apology. |
+| **Scope / design necessity — with new experiment** | Acknowledge the limitation honestly first ("it is not directly applicable to X"). Then: "In response to your suggestion, we investigated..." → new experiment table. |
+| **Design choice (hyperparameter)** | Lead with theoretical justification + cite paper line numbers ("As discussed in Lines Y–Z...") → then empirical ablation table. |
 | **Writing / presentation** | One line acknowledge → bulleted fix list. Never write a paragraph per issue. |
 | **Theoretical rigor** | If the reviewer is right: "Agreed, we will provide rigorous proofs with explicit assumptions in Appendix [X]." Rename Theorem → Proposition. If they're wrong: correct with the specific assumption they missed. |
 | **Generalization** | Run experiments on new models/settings. Present in table. State ASR reduction numbers explicitly. |
-| **Adaptive attack** | No experiment needed — argue combinatorial cost (moving target). Promise discussion in revised manuscript. |
+| **Adaptive attack** | No experiment needed — argue multi-step attack cost. Promise discussion in revised manuscript. If reviewer asks "in your opinion", match that framing in the opening. |
 | **Sensitivity analysis** | Lead with quantitative bound → table → underlying mechanism → appendix promise. |
+| **Q mirrors a W exactly** | One sentence cross-reference only: "Please refer to the Response of Weakness [N] for a detailed discussion." No repeated content. |
 
 ---
 
@@ -91,21 +94,19 @@ Always bold `will` and the target location:
 
 ### Experiment Table Format
 
-Present tables twice: first in a code block (compact, reviewer-friendly) then in markdown:
+Tables can be plain markdown (no need to double-present unless venue requires it):
 
-````
 ```
-Tab.RX: [Short title] ([Model], [Setting]).
-| Method | Benchmark↓ | Utility↑ | Latency(ms) |
-|---|---|---|---|
-| Baseline | ... | ... | ... |
-| +Ours | **...** | **...** | **...** |
+Table N: [Short title] ([Model], [Setting]).
+| Method | Benchmark↓ | Utility↑ |
+|---|---|---|
+| Baseline | ... | ... |
+| **Ours** | **...** | **...** |
 ```
-````
 
-Then the actual markdown table below it.
+Row ordering: baseline → competing alternatives → **ours (bolded)** → ours + extension (if applicable).
 
-Row ordering: baseline → weaker alternatives → **ours (bolded)** → ours + extension (if applicable).
+Table numbering: use `Table 1`, `Table 2`, etc. in rebuttal (not `Tab.R1`) unless venue convention differs.
 
 ### AC Meta-Comment (opening block)
 
@@ -174,10 +175,14 @@ Use backtick-fenced blocks for the "For Reviewer X:" headers (as in your example
 - Group related weaknesses under one block (label with all IDs: `***P-W1~W7, O-W1~W2***`)
 - Cross-reference shared experiments (write once, point others to same table)
 - Bold key numbers and conclusions inline
-- Present new experiment tables in both code-block and markdown form
 - State specific section/appendix in every revision promise
 - Use reviewer positives in the AC meta-comment (with reviewer IDs in brackets)
 - Call out "common knowledge" misunderstandings directly and confidently
+- Cite specific paper line numbers when defending an existing design choice: "As discussed in Lines Y–Z..."
+- When a Q is identical to a W, respond to Q with one sentence: "Please refer to the Response of Weakness N."
+- When doing new experiments in response to a scope concern, acknowledge the limitation honestly first, then present the extension
+- Match the reviewer's exact framing when they ask "in your opinion" — open the response with that register
+- Use "In response to your suggestion, we investigated..." when the new experiment directly addresses their suggestion
 
 **Don't:**
 - Never repeat the same experiment in two reviewer blocks — cross-reference
@@ -187,6 +192,7 @@ Use backtick-fenced blocks for the "For Reviewer X:" headers (as in your example
 - Never write more than a bulleted list for writing/formatting fixes
 - Never leave any weakness unanswered, even minor ones
 - Never use passive voice to avoid commitment
+- Never re-explain a W's response in a Q block — one sentence cross-reference only
 
 ---
 

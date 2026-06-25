@@ -14,16 +14,23 @@ Ready-to-adapt phrases for every common rebuttal move. These are NOT templates t
 
 **After missing experiment:**
 > "We thank the reviewer for this valuable suggestion, which strengthens our work."
-> "To verify this, we conduct the requested ablation (Tab. RX)."
-> "We have extended our evaluation to [X] to confirm SAP's generality."
+> "To verify this, we conduct the requested ablation (Table N)."
+> "We have extended our evaluation to [X] to confirm [method]'s generality."
+> "In response to your suggestion, we investigated [X]. Specifically, we [approach]. As shown in Table N, [result]."
+
+**After scope limitation — doing new experiment in response:**
+> "Our methodology was initially developed for [setting], leveraging [requirement] as a defensive mechanism. As such, it is not directly applicable to [excluded setting]. In response to your suggestion, we investigated the transferability of the core concept to [new setting]."
+
+**After scope limitation — no new experiment (pure design necessity):**
+> "[X] is technically infeasible by design — all [category] methods require [internal component]."
+> "Black-box [operation] is impossible: [one-sentence technical reason]. We have acknowledged this in the Limitations section."
+
+**After design choice hyperparameter (K, threshold, etc.):**
+> "There are two main reasons for adopting [choice]: (1) Theoretical Justification: As discussed in Lines Y–Z of the paper, [theoretical reason]. (2) Empirical Validation: We [experiment], as shown in Table N."
 
 **After missing baseline:**
 > "[Method Y]'s code is not publicly available, preventing direct integration."
 > "Despite the absence of official code, we reproduced [Y]'s core pipeline from the paper description."
-
-**After scope/design-constraint:**
-> "[X] is technically infeasible by design — all [category] methods require [internal component]."
-> "Black-box [operation] is impossible: [one-sentence technical reason]."
 
 **After writing/presentation:**
 > "All issues corrected and [related work / notation] updated in the revised manuscript."
@@ -31,6 +38,12 @@ Ready-to-adapt phrases for every common rebuttal move. These are NOT templates t
 **After theoretical rigor concern:**
 > "Agreed, we will provide rigorous proofs with explicit assumptions in Appendix [X]."
 > "We will (1) rename 'Theorem X' to 'Proposition X'; (2) expand Appendix [X] with step-by-step derivations and explicit boundary conditions."
+
+**Q = W exactly (cross-reference only):**
+> "Please refer to the Response of Weakness [N] for a detailed discussion on [topic]."
+
+**Reviewer asks "in your opinion":**
+> "The implementation details of any white-box defense, if exposed, inherently create avenues for adaptive attacks. This principle also applies to [method]. Nevertheless, bypassing [method] remains significantly more costly than circumventing simpler defenses like [X], which can be bypassed by merely [trivial action]."
 
 ---
 
