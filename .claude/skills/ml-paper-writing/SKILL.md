@@ -375,24 +375,37 @@ Organize the experiments section around numbered **Research Questions (RQ)** and
 \noindent\rule[-1.5pt]{2pt}{9pt}\hspace{4pt}\textbf{\textit{RQ.X. [Research question as a complete sentence?]}}
 ```
 
+**RQ wording rules:**
+- Include the comparison claim in the RQ itself: ✅ "Can X effectively do Y, outperforming existing defenses?" ❌ "Can X effectively do Y?"
+- Use a complete question sentence ending with `?`
+
 **Opening sentence (always one line, no paragraph):**
 ```latex
 To answer RQ.X, [metric/task] is assessed on [Benchmark A] and [Benchmark B], as reported in Table~\ref{tab:X}. The results lead to the following observation[s]:
 ```
 
+**Setup line rules:**
+- List ONLY benchmarks + table/figure refs. Do NOT explain evaluation protocols, scoring rubrics, or metric definitions in the setup line. Those belong in Experiments Setup or are implicit from the table.
+- ❌ "For MSSBench-Chat, we report results on both safe and unsafe subsets as well as the overall average score. For SIUO, following the original evaluation protocol, we report both Safe (S) and Safe-and-Effective (S\&E) scores."
+- ✅ "Safety awareness under intent-concealed attacks is assessed on MSSBench-Chat and SIUO, as reported in Table~\ref{tab:X}."
+
 Then use an `\itemize` list of Obs blocks.
 
 **Obs block format:**
 ```latex
-\item \textbf{\textit{Obs.X.Y.} \textit{[Conclusion as a short label — the takeaway, not a neutral description.]}}
-    As shown in Table~\ref{tab:X} / Fig.~\ref{fig:X}, [key number vs. baseline]. [1–2 sentences: what the number proves or what mechanism it confirms.]
+\item \textbf{\textit{Obs.X.Y.} \textit{[Short verdict — 5–10 words max.]}}
+    As shown in Table~\ref{tab:X}, [method] [result] (e.g., 53.85\%$\to$0.83\% on [Model] for [Benchmark]), [1 sentence: what this confirms or why baselines fail].
 ```
 
 Rules:
-- **The Obs label IS the conclusion.** Write it as a verdict, not a topic: ✅ "CBTM-E eliminates DPO training overhead while improving general utility" ❌ "Ablation of CBTM-E"
-- **Lead with numbers.** First sentence after "As shown in..." must contain specific metrics.
+- **The Obs label IS the conclusion — and must be SHORT.** 5–10 words. Often starts with "SOTA" or a direct verdict: ✅ "SOTA jailbreak defense on explicit-harm benchmarks" ✅ "CBTM-E eliminates DPO training overhead while improving general utility" ❌ "PIVOT achieves near-zero ASR across all benchmarks and model families" (too long, too descriptive)
+- **Use `$\to$` for number transitions**, not "from X to Y": ✅ `53.85\%$\to$0.83\%` ❌ `from 53.85\% to 0.83\%`
+- **Do NOT bold individual numbers inside Obs body.** The Obs label carries the emphasis; the body reports evidence plainly.
+- **Main result Obs: 1–2 sentences max.** Give the key numbers with `$\to$` notation + one verdict sentence.
+- **Comparative Obs (vs. baselines): explain WHY baselines fail first**, then contrast with your method. Pattern: "Existing methods rely on [surface-level mechanism]—such as [examples]—and show limited improvement when [harder condition]. In contrast, [method] achieves [result], demonstrating [method-mechanism connection]."
 - **Cap at 3–4 sentences per Obs.** If longer, split into two Obs.
 - **Do NOT use "To verify whether [claim]..." framing inside an Obs.** That framing belongs in the RQ setup line, not the Obs body.
+- **Tie the closing sentence to the method's mechanism name**, not generic "confirms effectiveness": ✅ "demonstrating the effectiveness of intent-grounded defense on intent-concealed attacks" ❌ "confirming PIVOT's effectiveness"
 
 #### Sensitivity Analysis Obs — Fixed Pattern
 
@@ -430,11 +443,17 @@ Every RQ and every Obs must answer exactly one of:
 
 #### Anti-patterns specific to RQ/Obs writing
 
-- ❌ Neutral Obs labels: "Performance on MM-SafetyBench" → ✅ "PIVOT achieves near-zero ASR across all model families"
+- ❌ Long Obs labels: "PIVOT achieves near-zero ASR across all benchmarks and model families" → ✅ "SOTA jailbreak defense on explicit-harm benchmarks" (5–10 words)
+- ❌ Neutral/topic Obs labels: "Performance on MM-SafetyBench" → ✅ verdict with "SOTA" or direct claim
+- ❌ Evaluation protocol details in setup line (safe/unsafe subsets, S&E scoring) — keep setup to benchmarks + table refs only
+- ❌ Bolding individual numbers in Obs body — let the label carry emphasis
+- ❌ `from X\% to Y\%` notation → ✅ `X\%$\to$Y\%` compact arrow
 - ❌ Explaining the evaluation setup inside the Obs body — put it in the "To answer RQ.X" setup line
 - ❌ Repeating the RQ question inside the Obs
 - ❌ Hypothesis-prediction framing ("If mechanism X holds, then...") inside Obs — state the result directly
 - ❌ More than one logical claim per Obs — split into Obs.X.1, Obs.X.2
+- ❌ Generic closing "confirms effectiveness" — tie to method's specific mechanism name
+- ❌ Describing vanilla model vulnerabilities at length before giving method results — go straight to method numbers
 
 ### Language And Phrase Bank
 
