@@ -256,9 +256,15 @@ Every paragraph must have an explicit logical function. Do not write a paragraph
 - Convert the risk into a technical gap, then into a central research question.
 - Establish the key empirical observation before presenting the method.
 - Make every method component traceable to an observed failure mode or mechanism.
-- Treat experiments as logical evidence, not as result reporting.
 - Prefer direct causal transitions: "However", "Yet", "This raises a key question", "To answer this", "This analysis yields a key insight", and "Motivated by this insight".
 - Avoid polished but empty prose. Clarity of reasoning is more important than rhetorical flourish.
+
+**Experiments section specifically:**
+- Use the **RQ → Obs** structure (see Experiment Section Guidance below).
+- The Obs label is a verdict, not a topic. Write the conclusion in the label.
+- Inside Obs body: numbers first, then 1–2 sentence mechanistic note. Do NOT use "To verify whether..." or "If our hypothesis holds..." framing inside Obs — that framing belongs in the RQ setup line.
+- Sensitivity ablations use the fixed three-sentence pattern: vary range → minimum at X → "We therefore empirically set."
+- Do NOT inject hypothesis-prediction structure ("If mechanism X holds, then we should observe Y") into Obs blocks. State the result. State what it confirms. Stop.
 
 ### Default Paper Narrative For LLM Safety
 
@@ -359,21 +365,76 @@ Rules:
 
 ### Experiment Section Guidance
 
-Experiments should answer logical questions:
+#### Structure: RQ → Obs Pattern
 
-- **Main results**: Does the method solve the target safety problem?
-- **Utility evaluation**: Does the method preserve general capability?
-- **Efficiency evaluation**: Does the method avoid training or runtime overhead?
-- **Ablation**: Which component supports which mechanism claim?
-- **Analysis**: Does the observed behavior match the proposed explanation?
-- **Robustness/sensitivity**: Does the method hold across models, benchmarks, layers, prompts, pruning ratios, or hyperparameters?
-- **Case study**: Does the qualitative behavior illustrate the mechanism?
+Organize the experiments section around numbered **Research Questions (RQ)** and **Observations (Obs)**. This is the standard structure for Xinyu's papers.
 
-Do not write only "Table X shows...". Always add what the result proves.
-
-```text
-To verify whether [claim], we evaluate [setup]. The results show that [finding]. This indicates that [mechanistic interpretation], rather than merely [alternative explanation].
+**Subsection header format:**
+```latex
+\subsection{[Subsection Title]}
+\noindent\rule[-1.5pt]{2pt}{9pt}\hspace{4pt}\textbf{\textit{RQ.X. [Research question as a complete sentence?]}}
 ```
+
+**Opening sentence (always one line, no paragraph):**
+```latex
+To answer RQ.X, [metric/task] is assessed on [Benchmark A] and [Benchmark B], as reported in Table~\ref{tab:X}. The results lead to the following observation[s]:
+```
+
+Then use an `\itemize` list of Obs blocks.
+
+**Obs block format:**
+```latex
+\item \textbf{\textit{Obs.X.Y.} \textit{[Conclusion as a short label — the takeaway, not a neutral description.]}}
+    As shown in Table~\ref{tab:X} / Fig.~\ref{fig:X}, [key number vs. baseline]. [1–2 sentences: what the number proves or what mechanism it confirms.]
+```
+
+Rules:
+- **The Obs label IS the conclusion.** Write it as a verdict, not a topic: ✅ "CBTM-E eliminates DPO training overhead while improving general utility" ❌ "Ablation of CBTM-E"
+- **Lead with numbers.** First sentence after "As shown in..." must contain specific metrics.
+- **Cap at 3–4 sentences per Obs.** If longer, split into two Obs.
+- **Do NOT use "To verify whether [claim]..." framing inside an Obs.** That framing belongs in the RQ setup line, not the Obs body.
+
+#### Sensitivity Analysis Obs — Fixed Pattern
+
+```latex
+\item \textbf{\textit{Obs.X.Y.} \textit{[Value] achieves optimal performance.}}
+    We vary [hyperparameter] in \{[range]\}. As shown in Fig.~\ref{fig:X}([panel]), [metric] reaches the minimum at [value] ([metric1] = [N], [metric2] = [N]). We therefore empirically set [hyperparameter] to [value].
+```
+
+Three sentences. No deviation. Do not explain why the optimum exists unless there is a clear mechanistic reason.
+
+#### Ablation Obs — Fixed Pattern
+
+```latex
+\item \textbf{\textit{Obs.X.} \textit{Combining all modules achieves the best [task] performance.}}
+    As shown in Table~\ref{tab:ablation}, without [any module], the model exhibits [worst metric]. [Adding component A] reduces [metric] to [N]; further adding [component B] achieves the best result ([metric] = [N]). This confirms the contribution of each proposed component.
+```
+
+#### Visualization Subsection
+
+Close the experiments with a qualitative comparison paragraph (no RQ, no Obs, no bullets). Pattern:
+
+```latex
+Fig.~\ref{fig:vis} provides a qualitative comparison of [task] on [dataset]. [Baseline model] incorrectly [error 1] and [error 2]. [Competing method] retains [error] and introduces [new error]. [Ours] correctly [correct behavior] and preserves [correct detail]. This example demonstrates that [method] more effectively suppresses [failure type] while preserving [desired property]. Additional qualitative comparisons are provided in Appendix~[X].
+```
+
+#### What Each Experiment Must Prove
+
+Every RQ and every Obs must answer exactly one of:
+- **Main results**: Does the method solve the target problem across benchmarks and model families?
+- **General utility**: Does the method preserve or improve general capability?
+- **Ablation**: Which component drives which gain?
+- **Sensitivity**: What is the optimal hyperparameter and how stable is the method near it?
+- **Analysis/induction quality**: Does the method's internal behavior match the proposed mechanism?
+- **Visualization**: Does a qualitative example illustrate where the method succeeds vs. baselines?
+
+#### Anti-patterns specific to RQ/Obs writing
+
+- ❌ Neutral Obs labels: "Performance on MM-SafetyBench" → ✅ "PIVOT achieves near-zero ASR across all model families"
+- ❌ Explaining the evaluation setup inside the Obs body — put it in the "To answer RQ.X" setup line
+- ❌ Repeating the RQ question inside the Obs
+- ❌ Hypothesis-prediction framing ("If mechanism X holds, then...") inside Obs — state the result directly
+- ❌ More than one logical claim per Obs — split into Obs.X.1, Obs.X.2
 
 ### Language And Phrase Bank
 
