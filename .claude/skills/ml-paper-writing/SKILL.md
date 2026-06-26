@@ -401,11 +401,14 @@ Rules:
 - **The Obs label IS the conclusion — and must be SHORT.** 5–10 words. Often starts with "SOTA" or a direct verdict: ✅ "SOTA jailbreak defense on explicit-harm benchmarks" ✅ "CBTM-E eliminates DPO training overhead while improving general utility" ❌ "PIVOT achieves near-zero ASR across all benchmarks and model families" (too long, too descriptive)
 - **Use `$\to$` for number transitions**, not "from X to Y": ✅ `53.85\%$\to$0.83\%` ❌ `from 53.85\% to 0.83\%`
 - **Do NOT bold individual numbers inside Obs body.** The Obs label carries the emphasis; the body reports evidence plainly.
-- **Main result Obs: 1–2 sentences max.** Give the key numbers with `$\to$` notation + one verdict sentence.
-- **Comparative Obs (vs. baselines): explain WHY baselines fail first**, then contrast with your method. Pattern: "Existing methods rely on [surface-level mechanism]—such as [examples]—and show limited improvement when [harder condition]. In contrast, [method] achieves [result], demonstrating [method-mechanism connection]."
-- **Cap at 3–4 sentences per Obs.** If longer, split into two Obs.
+- **Data embedding: always use parenthetical `(e.g., ...)`** to embed data inline, with `$\to$` arrows and comma-separated model entries. Pattern: `(e.g., X\%$\to$Y\% on [Model A], A\%$\to$B\% on [Model B] for [Benchmark])`. Use semicolons to separate benchmark groups within the same parenthetical. Never spread data across multiple independent sentences.
+- **Main result Obs: compress into 1 sentence.** Pattern: "As shown in Table X, [method] [verb] [result] across [scope] (e.g., [data1]; [data2]), [verdict clause]." Do NOT write separate sentences for vanilla model problems, baseline limitations, and method results — compress all into one sentence with parenthetical data.
+- **Comparative Obs: exactly 2 sentences.** Sentence 1: "existing [methods/defenses]~\citep{a, b, c} rely on [mechanism]---such as [examples]---and show limited improvement when [harder condition] (e.g., [baseline numbers])." Sentence 2: "In contrast, [method] achieves [result] (e.g., [data]; [data]), demonstrating [method-mechanism-name] on [task-type]."
+- **Baseline references: use grouped `\citep{}`** after "existing defenses/methods", NOT individual method names inline. ❌ "methods such as ECSO and shiftDC provide... while EchoSafe reduces..." ✅ "existing defenses~\citep{a, b, c, d} rely on [mechanism]..."
+- **Do NOT describe vanilla model vulnerabilities** as a separate sentence/paragraph before giving method results. The reader knows vanilla models are vulnerable — go straight to method vs. baselines.
+- **Cap at 2 sentences per Obs for main results.** Sensitivity/ablation Obs may use 3. If longer, split into Obs.X.1, Obs.X.2.
 - **Do NOT use "To verify whether [claim]..." framing inside an Obs.** That framing belongs in the RQ setup line, not the Obs body.
-- **Tie the closing sentence to the method's mechanism name**, not generic "confirms effectiveness": ✅ "demonstrating the effectiveness of intent-grounded defense on intent-concealed attacks" ❌ "confirming PIVOT's effectiveness"
+- **Tie the closing clause to the method's mechanism name**, not generic "confirms effectiveness": ✅ "demonstrating the effectiveness of intent-grounded defense on intent-concealed attacks" ❌ "confirming PIVOT's effectiveness" ❌ "confirms that PIVOT provides stable jailbreak defense"
 
 #### Sensitivity Analysis Obs — Fixed Pattern
 
