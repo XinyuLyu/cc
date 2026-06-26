@@ -506,6 +506,107 @@ Limitations:
 - "Limitations: [method] requires ..., restricting its applicability to ..."
 - "This limitation does not undermine the central claim because ..."
 
+### Domain Language Rules (ML Safety Papers)
+
+These rules are extracted from published papers in LLM/MLLM safety. Follow them in all experiment sections.
+
+#### Verb Selection
+
+| Context | Use | Avoid |
+|---|---|---|
+| Safety metric improves | reduce, lower, drop, suppress, mitigate | decrease, lessen, make lower |
+| Performance is good | achieve, maintain, preserve, retain | get, have, do |
+| Method works | confirm, validate, demonstrate, verify | show, prove, find |
+| Comparison wins | outperform, surpass | beat, win, be better than |
+| Mechanism action | divert, restore, reconstruct, reallocate, suppress | fix, correct, change |
+| Design motivation | employ, adopt, leverage, incorporate, exploit | use, do, apply |
+
+✅ "SAP consistently **mitigates** safety risks across all five pruning methods"
+❌ "SAP consistently **fixes** safety risks across all five pruning methods"
+
+#### Modifier Selection
+
+| Degree | Use | Avoid |
+|---|---|---|
+| Large improvement | substantially, significantly, markedly | very, greatly, a lot, dramatically |
+| Small change | marginally, minor, negligible, slight | a bit, somewhat, kind of |
+| Consistency | consistently, robustly, across all [settings] | always, every time |
+| Confidence | effectively, practically | definitely, clearly, obviously |
+| Comparison | comparable, competitive, superior | similar, good enough |
+
+✅ "with only **minor** fluctuations" / "**negligible** cost"
+❌ "with only **very small** fluctuations" / "**very low** cost"
+
+#### Fixed Collocations (Domain-Specific)
+
+Use these exact phrases — they are domain signals that reviewers expect:
+- `reduce ASR to near zero` / `near-immunity against [attack]`
+- `without compromising [utility/general capability]`
+- `safety-utility trade-off`
+- `across all [models/benchmarks/settings]`
+- `incur negligible [overhead/cost]`
+- `pruning-induced [vulnerability/amplification]`
+- `state-of-the-art [safety/performance]`
+- `while preserving [fine-grained multimodal understanding / task performance]`
+- `without imposing prohibitive computational burdens`
+- `provides a favorable balance`
+
+#### Vocabulary to Avoid in ML Safety Papers
+
+| Avoid | Replace with | Why |
+|---|---|---|
+| model families | MLLMs / architectures / models | informal |
+| corrects this imbalance | mitigates / addresses | non-technical |
+| biased behavior | [specific failure mode description] | vague |
+| kind of / a lot / really | [quantify or remove] | colloquial |
+| proves that | confirms / validates / demonstrates that | overclaims |
+| fails / broken | shows limited improvement / exhibits vulnerability | too harsh for others' work |
+
+#### Experiment Paragraph Structure (Non-RQ Paragraphs)
+
+When NOT using the RQ→Obs format (e.g., ablation, efficiency, extension, visualization), use `\noindent\textbf{[Experiment Name].}` paragraphs with this fixed structure:
+
+```latex
+\noindent\textbf{[Short Experiment Name].}
+To [verb: evaluate/assess/verify/investigate] [what], we [conduct/compare/present] [setup] on [benchmarks], as shown in Tab.~\ref{tab:X}.
+[Results: 1–3 sentences with inline data using (e.g., ...) or (vs. ...) notation.]
+These results [confirm/demonstrate/validate] that [method] [claim tied to mechanism].
+```
+
+Rules:
+- **Setup sentence always starts with "To [verb]"** — never start with "We" or "Table X shows".
+- **Closing sentence always starts with "These results/findings [confirm/demonstrate/validate]"** — every experiment paragraph must have this explicit closing.
+- **Results in the middle use inline data**: `(e.g., X on Model)` or `(vs. Y for Baseline)` or `X$\to$Y`.
+- For numbered multi-observation format, use `(1) ... (2) ... (3) ...` with each observation capped at 1 sentence.
+
+✅ "**To assess** computational overhead, **we compare** ... **in** Tab.X. ... **These findings confirm** that SAP is lightweight."
+❌ "Table X shows the computational overhead. SAP has low latency. This means it is efficient."
+
+#### Baseline Critique: Data-Driven, Not Evaluative
+
+Describe others' methods' limitations through **data contrast**, not evaluative language. Let numbers speak.
+
+✅ "0.98 on LLaVA-1.5 (vs. 2.10 Immune, 14.36 AdaShield)" — reader sees the gap
+❌ "Immune and AdaShield fail to provide adequate defense" — evaluative judgment
+
+When mechanism-level critique is needed, state the **factual mechanism** then show data:
+✅ "external guardrails negate pruning's acceleration gains (57.19 ms vs. 160.09 ms)"
+❌ "external guardrails are too slow and impractical"
+
+#### "We find" Replacement
+
+Do NOT write "We find that" or "We found that". Replace with:
+- "We observed that:" → followed by numbered observations
+- "Results demonstrate..." / "The results indicate..."
+- "These findings confirm..."
+
+#### Sensitivity/Hyperparameter Paragraph: Fixed Closing
+
+Always close sensitivity analysis with the chosen value and justification:
+✅ "Empirically, **we choose K=10\%** as it provides a favorable balance"
+✅ "**We use 75\%** as the default setting for consistency with the main experiments"
+❌ Ending without stating the chosen default value
+
 ### Anti-Patterns
 
 Avoid:
@@ -519,7 +620,11 @@ Avoid:
 - disconnected contribution bullets;
 - exaggerated claims beyond experimental evidence;
 - related work written as a paper-by-paper list;
-- experiments that report numbers without explaining what logical claim they support.
+- experiments that report numbers without explaining what logical claim they support;
+- evaluative language about baselines instead of data-driven contrast;
+- using "find/found" instead of "observe/confirm/demonstrate";
+- starting experiment paragraphs with anything other than "To [verb]";
+- ending experiment paragraphs without "These results/findings [confirm/demonstrate]".
 
 ---
 
