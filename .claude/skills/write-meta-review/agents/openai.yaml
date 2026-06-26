@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Meta Review"
+  short_description: "Draft AC meta-reviews from reviewer evidence"
+  default_prompt: "Use $write-meta-review to draft a concise AC meta-review from reviewer opinions with scores/confidence and the authors' rebuttal."
