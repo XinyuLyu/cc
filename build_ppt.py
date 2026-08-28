@@ -32,6 +32,7 @@ LIGHT_BLUE_BG = RGBColor(0xE8, 0xEE, 0xF7)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 GRAY_TEXT = RGBColor(0x99, 0x99, 0x99)
 RED_TITLE = RGBColor(0xA1, 0x00, 0x32)
+BLACK = RGBColor(0x33, 0x33, 0x33)
 
 CHAPTERS = [
     ("第一课", "初识大模型", [
@@ -105,6 +106,8 @@ def map_font(pdf_font):
 
 
 def color_int_to_rgb(c):
+    if c == 0:
+        return BLACK
     return RGBColor((c >> 16) & 0xFF, (c >> 8) & 0xFF, c & 0xFF)
 
 
@@ -157,23 +160,29 @@ def add_header_bar(slide, chapter_label=""):
 
 
 def add_title_bar(slide, title_text, subtitle_text=""):
-    """Add a colored title bar below the header."""
-    # Title background bar
     rect = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
-        Emu(0), Emu(836295), Emu(SLIDE_W), Emu(560000),
+        Emu(0), Emu(836295), Emu(SLIDE_W), Emu(620000),
     )
     rect.fill.solid()
     rect.fill.fore_color.rgb = LIGHT_BLUE_BG
     rect.line.fill.background()
 
-    # Title text
+    # Blue left accent bar
+    accent = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Emu(0), Emu(836295), Emu(80000), Emu(620000),
+    )
+    accent.fill.solid()
+    accent.fill.fore_color.rgb = BLUE_ACCENT
+    accent.line.fill.background()
+
     txbox = slide.shapes.add_textbox(
-        Emu(200000), Emu(856295), Emu(SLIDE_W - 400000), Emu(520000),
+        Emu(250000), Emu(860000), Emu(SLIDE_W - 400000), Emu(580000),
     )
     tf = txbox.text_frame
     tf.word_wrap = True
-    tf.margin_left = Emu(100000)
+    tf.margin_left = Emu(0)
     tf.margin_top = Emu(0)
     tf.margin_bottom = Emu(0)
 
@@ -349,15 +358,12 @@ def make_chapter_nav_slide(prs, current_idx):
 
 # ── PDF content parsing ──
 
-# Bullet markers to strip
 BULLET_RE = re.compile(r"^[➢▶●○■□◆◇•▪▸▹►▻→←↑↓⇒⇐⇑⇓✓✗✘✔✕☐☑☒★☆♦♠♣♥]\s*")
 
-# X-position thresholds for indent level detection (in PDF points)
 INDENT_THRESHOLDS = [70, 110, 140, 170, 200]
 
 
 def detect_indent_level(x0, font_size):
-    """Determine indent level from x-position."""
     for i, thresh in enumerate(INDENT_THRESHOLDS):
         if x0 < thresh:
             return i
@@ -365,7 +371,6 @@ def detect_indent_level(x0, font_size):
 
 
 def is_footer(text, y0, page_h):
-    """Detect footer/reference text to skip."""
     if "教材课件" in text:
         return True
     if y0 > page_h - 30 and len(text) < 40:
@@ -374,7 +379,6 @@ def is_footer(text, y0, page_h):
 
 
 def is_url_ref(text):
-    """Detect URL reference lines."""
     return text.strip().startswith("http://") or text.strip().startswith("https://")
 
 
@@ -382,10 +386,11 @@ def parse_pdf_page(page):
     """Parse a PDF page into structured content: title, body lines, images."""
     td = page.get_text("dict")
     page_h = page.rect.height
+    page_w = page.rect.width
 
     title_text = ""
-    body_lines = []    # list of (indent_level, spans_data)
-    image_blocks = []  # list of (bbox, xref_match_info)
+    body_lines = []
+    image_blocks = []
 
     all_blocks = sorted(td["blocks"], key=lambda b: (b["bbox"][1], b["bbox"][0]))
 
@@ -405,7 +410,6 @@ def parse_pdf_page(page):
             if not line["spans"]:
                 continue
 
-            # Build full line text from all spans
             full_text = "".join(s["text"] for s in line["spans"]).strip()
             if not full_text:
                 continue
@@ -415,23 +419,18 @@ def parse_pdf_page(page):
             x0 = line["bbox"][0]
             y0 = line["bbox"][1]
 
-            # Skip footer/references
             if is_footer(full_text, y0, page_h):
                 continue
 
-            # Detect title (large font at top of page)
             if max_size >= 30 and y0 < 80 and not title_text:
                 title_text = full_text
                 continue
 
-            # Skip URL references at bottom
             if is_url_ref(full_text) and y0 > page_h - 50:
                 continue
 
-            # Body content - determine indent and collect span data
             indent = detect_indent_level(x0, max_size)
 
-            # Collect rich span data for this line
             spans_data = []
             for s in line["spans"]:
                 text = s["text"]
@@ -451,170 +450,334 @@ def parse_pdf_page(page):
     return title_text, body_lines, image_blocks
 
 
+def _classify_images(image_bboxes, page_w, page_h):
+    """Classify images by position and size for layout decisions."""
+    if not image_bboxes:
+        return "none", []
+
+    large_images = []
+    for bbox in image_bboxes:
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
+        if w < 60 or h < 40:
+            continue
+        cx = (bbox[0] + bbox[2]) / 2
+        cy = (bbox[1] + bbox[3]) / 2
+        area_ratio = (w * h) / (page_w * page_h)
+        large_images.append({
+            "bbox": bbox,
+            "w": w, "h": h,
+            "cx": cx, "cy": cy,
+            "area": area_ratio,
+            "right_side": cx > page_w * 0.55,
+            "bottom_half": cy > page_h * 0.5,
+        })
+
+    if not large_images:
+        return "none", []
+
+    total_area = sum(im["area"] for im in large_images)
+
+    # If images dominate the page (>45% area), render full page as image
+    if total_area > 0.45:
+        return "image_dominant", large_images
+
+    right_images = [im for im in large_images if im["right_side"]]
+    bottom_images = [im for im in large_images if im["bottom_half"] and not im["right_side"]]
+
+    # Any significant image on the right side → right column layout
+    if right_images and sum(im["area"] for im in right_images) > 0.04:
+        return "right_column", large_images
+
+    if bottom_images and sum(im["area"] for im in bottom_images) > 0.04:
+        return "bottom_images", large_images
+
+    # Any remaining images — use right column if any single image is significant
+    if large_images and max(im["area"] for im in large_images) > 0.03:
+        return "right_column", large_images
+
+    return "scattered", large_images
+
+
+def _add_text_content(tf, body_lines, font_size_map="normal"):
+    """Add body text lines to a text frame with proper formatting."""
+    BULLET_CHARS = {0: "●", 1: "▸", 2: "○", 3: "–", 4: "·", 5: "·"}
+
+    # Font size mapping based on layout mode
+    if font_size_map == "compact":
+        SIZE_MAP = {28: 20, 24: 18, 20: 16, 16: 14, 12: 12}
+    else:
+        SIZE_MAP = {28: 24, 24: 22, 20: 20, 16: 16, 12: 14}
+
+    INDENT_EMU = 350000
+
+    prev_indent = -1
+    for li, (indent, spans_data, y0) in enumerate(body_lines):
+        p = tf.paragraphs[0] if li == 0 else tf.add_paragraph()
+
+        # Spacing: more space between top-level items, less for sub-items
+        if indent <= 1:
+            p.space_before = Pt(8)
+        else:
+            p.space_before = Pt(3)
+        p.space_after = Pt(2)
+
+        # Set indentation
+        pPr = p._p.get_or_add_pPr()
+        indent_emu = indent * INDENT_EMU
+        pPr.set("marL", str(indent_emu))
+
+        # Check for existing bullet in text
+        first_text = spans_data[0]["text"]
+        has_bullet = bool(BULLET_RE.match(first_text))
+
+        # Determine dominant font size in this line
+        max_size = max(sd["size"] for sd in spans_data)
+
+        for si, sd in enumerate(spans_data):
+            text = sd["text"]
+            run = p.add_run()
+            run.text = text
+
+            f = run.font
+            f.name = map_font(sd["font"])
+
+            orig_size = sd["size"]
+            mapped = SIZE_MAP.get(28, 24)
+            for threshold in sorted(SIZE_MAP.keys(), reverse=True):
+                if orig_size >= threshold:
+                    mapped = SIZE_MAP[threshold]
+                    break
+            else:
+                mapped = SIZE_MAP.get(12, 14)
+            f.size = Pt(mapped)
+
+            f.color.rgb = color_int_to_rgb(sd["color"])
+
+            flags = sd["flags"]
+            font_name = sd["font"]
+            if flags & 16 or "Bold" in font_name:
+                f.bold = True
+            if flags & 2 or "Italic" in font_name:
+                f.italic = True
+
+
 def build_content_slide(prs, page, doc, chapter_label, section_name):
-    """Build a formatted slide from a PDF page."""
+    """Build a formatted slide from a PDF page with professional layout."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
 
     title_text, body_lines, image_bboxes = parse_pdf_page(page)
+    page_w = page.rect.width
+    page_h = page.rect.height
 
-    # Add template header
     add_header_bar(slide, chapter_label)
 
-    # Add title bar
-    if title_text:
-        # Check if title differs from section name (indicating a sub-topic)
-        if title_text != section_name:
-            add_title_bar(slide, title_text)
-        else:
-            add_title_bar(slide, section_name)
-    else:
-        add_title_bar(slide, section_name)
+    display_title = title_text if title_text else section_name
+    add_title_bar(slide, display_title)
 
-    # Content area starts below title bar
-    content_top = 1430000
-    content_left = 200000
-    content_w = SLIDE_W - 400000
+    # Content area boundaries
+    CONTENT_TOP = 1500000
+    CONTENT_LEFT = 300000
+    CONTENT_RIGHT_MARGIN = 300000
+    CONTENT_BOTTOM = SLIDE_H - 200000
+    FULL_CONTENT_W = SLIDE_W - CONTENT_LEFT - CONTENT_RIGHT_MARGIN
 
-    # Determine layout based on images
-    has_large_right_image = False
-    large_image_bbox = None
+    layout_type, classified_images = _classify_images(image_bboxes, page_w, page_h)
 
-    # Check for large images and their position
-    for bbox in image_bboxes:
-        img_w = bbox[2] - bbox[0]
-        img_h = bbox[3] - bbox[1]
-        if img_w > 200 and img_h > 100:
-            # If image is on the right side and takes significant space
-            if bbox[0] > 400 and img_w > 300:
-                has_large_right_image = True
-                large_image_bbox = bbox
-            elif img_w > 500:
-                # Full-width image
-                large_image_bbox = bbox
+    if layout_type == "image_dominant":
+        # Page is mostly images (diagrams, charts) — render as full-page image
+        _render_page_as_image(page, slide, CONTENT_TOP, CONTENT_LEFT, FULL_CONTENT_W, CONTENT_BOTTOM)
+        return
 
-    # Text content width - narrower if there's a right-side image
-    text_w = content_w
-    if has_large_right_image and large_image_bbox:
-        text_w = int(large_image_bbox[0] * SCALE) - content_left - 100000
-        if text_w < 4000000:
-            text_w = content_w
-            has_large_right_image = False
+    if layout_type == "right_column":
+        # Text on left, images on right
+        img_col_w = int(FULL_CONTENT_W * 0.42)
+        text_col_w = FULL_CONTENT_W - img_col_w - 200000  # gap
+        img_col_left = CONTENT_LEFT + text_col_w + 200000
 
-    # Add body text
+        # Add text on left
+        if body_lines:
+            text_h = CONTENT_BOTTOM - CONTENT_TOP
+            txbox = slide.shapes.add_textbox(
+                Emu(CONTENT_LEFT), Emu(CONTENT_TOP),
+                Emu(text_col_w), Emu(text_h),
+            )
+            tf = txbox.text_frame
+            tf.word_wrap = True
+            tf.margin_left = Emu(80000)
+            tf.margin_right = Emu(50000)
+            tf.margin_top = Emu(30000)
+            tf.margin_bottom = Emu(30000)
+            _add_text_content(tf, body_lines, "compact")
+
+        # Stack images on right column
+        _place_images_in_column(
+            page, doc, slide, classified_images,
+            img_col_left, CONTENT_TOP, img_col_w, CONTENT_BOTTOM,
+        )
+        return
+
+    if layout_type == "bottom_images":
+        # Text on top, images below
+        bottom_imgs = [im for im in classified_images if im["bottom_half"]]
+        top_imgs = [im for im in classified_images if not im["bottom_half"]]
+
+        # Calculate split point
+        img_zone_h = int((CONTENT_BOTTOM - CONTENT_TOP) * 0.40)
+        text_zone_h = CONTENT_BOTTOM - CONTENT_TOP - img_zone_h - 100000
+        img_zone_top = CONTENT_TOP + text_zone_h + 100000
+
+        if body_lines:
+            txbox = slide.shapes.add_textbox(
+                Emu(CONTENT_LEFT), Emu(CONTENT_TOP),
+                Emu(FULL_CONTENT_W), Emu(text_zone_h),
+            )
+            tf = txbox.text_frame
+            tf.word_wrap = True
+            tf.margin_left = Emu(80000)
+            tf.margin_right = Emu(50000)
+            tf.margin_top = Emu(30000)
+            tf.margin_bottom = Emu(30000)
+            _add_text_content(tf, body_lines, "compact")
+
+        # Place images in bottom row
+        all_imgs = bottom_imgs if bottom_imgs else classified_images
+        _place_images_in_row(
+            page, doc, slide, all_imgs,
+            CONTENT_LEFT, img_zone_top, FULL_CONTENT_W, CONTENT_BOTTOM,
+        )
+
+        # Also place any top images in text zone if they exist
+        if top_imgs:
+            for im in top_imgs:
+                _try_add_image_at(page, doc, slide, im["bbox"],
+                                  CONTENT_LEFT + int(FULL_CONTENT_W * 0.55),
+                                  CONTENT_TOP,
+                                  int(FULL_CONTENT_W * 0.40),
+                                  text_zone_h)
+        return
+
+    # Default: text-only or scattered images
     if body_lines:
-        # Calculate text box height
-        text_h = SLIDE_H - content_top - 200000
-
+        text_h = CONTENT_BOTTOM - CONTENT_TOP
         txbox = slide.shapes.add_textbox(
-            Emu(content_left), Emu(content_top),
-            Emu(text_w), Emu(text_h),
+            Emu(CONTENT_LEFT), Emu(CONTENT_TOP),
+            Emu(FULL_CONTENT_W), Emu(text_h),
         )
         tf = txbox.text_frame
         tf.word_wrap = True
-        tf.margin_left = Emu(50000)
+        tf.margin_left = Emu(80000)
         tf.margin_right = Emu(50000)
-        tf.margin_top = Emu(50000)
-        tf.margin_bottom = Emu(50000)
+        tf.margin_top = Emu(30000)
+        tf.margin_bottom = Emu(30000)
+        _add_text_content(tf, body_lines, "normal")
 
-        INDENT_EMU = 380000  # per level
-
-        for li, (indent, spans_data, y0) in enumerate(body_lines):
-            p = tf.paragraphs[0] if li == 0 else tf.add_paragraph()
-            p.space_before = Pt(3)
-            p.space_after = Pt(1)
-
-            # Set indentation
-            pPr = p._p.get_or_add_pPr()
-            pPr.set("marL", str(indent * INDENT_EMU))
-
-            # Determine if first span starts with bullet marker
-            first_text = spans_data[0]["text"]
-            bullet_match = BULLET_RE.match(first_text)
-
-            for si, sd in enumerate(spans_data):
-                text = sd["text"]
-
-                # Strip bullet marker from first span and we'll set bullet formatting
-                if si == 0 and bullet_match:
-                    # Keep the bullet character, it's part of the design
-                    pass
-
-                run = p.add_run()
-                run.text = text
-
-                f = run.font
-                f.name = map_font(sd["font"])
-                # Scale font sizes slightly for the content area
-                orig_size = sd["size"]
-                if orig_size >= 28:
-                    f.size = Pt(22)
-                elif orig_size >= 24:
-                    f.size = Pt(18)
-                elif orig_size >= 20:
-                    f.size = Pt(16)
-                elif orig_size >= 16:
-                    f.size = Pt(14)
-                else:
-                    f.size = Pt(12)
-
-                f.color.rgb = color_int_to_rgb(sd["color"])
-
-                flags = sd["flags"]
-                font_name = sd["font"]
-                if flags & 16 or "Bold" in font_name:
-                    f.bold = True
-                if flags & 2 or "Italic" in font_name:
-                    f.italic = True
-
-    # Add images
-    for bbox in image_bboxes:
-        img_w_pdf = bbox[2] - bbox[0]
-        img_h_pdf = bbox[3] - bbox[1]
-
-        if img_w_pdf < 60 or img_h_pdf < 40:
-            continue
-
-        # Map image position to PPTX coordinates
-        # Y: map from PDF page to content area below title bar
-        pdf_content_start = 80.0
-        pdf_content_end = page.rect.height - 20.0
-        pdf_range = pdf_content_end - pdf_content_start
-
-        pptx_content_start = content_top
-        pptx_content_end = SLIDE_H - 100000
-        pptx_range = pptx_content_end - pptx_content_start
-
-        # Map y position
-        rel_y = (bbox[1] - pdf_content_start) / pdf_range
-        img_top = int(pptx_content_start + rel_y * pptx_range)
-        img_top = max(content_top, min(img_top, SLIDE_H - 500000))
-
-        # Map x position
-        img_left = int(bbox[0] * SCALE)
-
-        # Scale image size to fit slide
-        max_img_w = SLIDE_W - img_left - 100000
-        max_img_h = SLIDE_H - img_top - 100000
-
-        img_w = int(img_w_pdf * SCALE)
-        img_h = int(img_h_pdf * SCALE)
-
-        # Scale down if needed
-        if img_w > max_img_w:
-            ratio = max_img_w / img_w
-            img_w = max_img_w
-            img_h = int(img_h * ratio)
-        if img_h > max_img_h:
-            ratio = max_img_h / img_h
-            img_h = max_img_h
-            img_w = int(img_w * ratio)
-
-        # Find and extract actual image data
-        _try_add_image(page, doc, slide, bbox, img_left, img_top, img_w, img_h)
+    # Place scattered images below text or centered
+    if classified_images:
+        _place_images_scattered(page, doc, slide, classified_images,
+                                CONTENT_LEFT, CONTENT_TOP, FULL_CONTENT_W, CONTENT_BOTTOM,
+                                page_w, page_h)
 
 
-def _try_add_image(page, doc, slide, target_bbox, left, top, width, height):
-    """Try to find and add the matching image from the PDF."""
+def _render_page_as_image(page, slide, top, left, width, bottom):
+    """Render the entire PDF page as an image for diagram-heavy pages."""
+    available_h = bottom - top
+    mat = pymupdf.Matrix(2.0, 2.0)
+    pix = page.get_pixmap(matrix=mat, alpha=False)
+    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+    # Crop off header area (top ~15%) and footer (~5%)
+    crop_top = int(pix.height * 0.13)
+    crop_bottom = int(pix.height * 0.95)
+    img = img.crop((0, crop_top, pix.width, crop_bottom))
+
+    buf = BytesIO()
+    img.save(buf, format="JPEG", quality=70, optimize=True)
+    buf.seek(0)
+
+    img_aspect = img.width / img.height
+    avail_aspect = width / available_h
+
+    if img_aspect > avail_aspect:
+        img_w = width
+        img_h = int(width / img_aspect)
+    else:
+        img_h = available_h
+        img_w = int(available_h * img_aspect)
+
+    img_left = left + (width - img_w) // 2
+    img_top = top + (available_h - img_h) // 2
+
+    slide.shapes.add_picture(buf, Emu(img_left), Emu(img_top), Emu(img_w), Emu(img_h))
+
+
+def _place_images_in_column(page, doc, slide, images, col_left, col_top, col_w, col_bottom):
+    """Place images stacked vertically in a column."""
+    available_h = col_bottom - col_top
+    n = len(images)
+    if n == 0:
+        return
+
+    gap = 100000
+    per_img_h = (available_h - gap * (n - 1)) // n
+    per_img_h = min(per_img_h, available_h // 2)
+
+    y = col_top
+    for im in images:
+        if y + 200000 > col_bottom:
+            break
+        remaining = col_bottom - y
+        h = min(per_img_h, remaining)
+        _try_add_image_at(page, doc, slide, im["bbox"], col_left, y, col_w, h)
+        y += h + gap
+
+
+def _place_images_in_row(page, doc, slide, images, row_left, row_top, row_w, row_bottom):
+    """Place images side by side in a horizontal row."""
+    available_h = row_bottom - row_top
+    n = len(images)
+    if n == 0:
+        return
+
+    gap = 150000
+    per_img_w = (row_w - gap * (n - 1)) // n
+
+    x = row_left
+    for im in images:
+        if x + 200000 > row_left + row_w:
+            break
+        remaining = row_left + row_w - x
+        w = min(per_img_w, remaining)
+        _try_add_image_at(page, doc, slide, im["bbox"], x, row_top, w, available_h)
+        x += w + gap
+
+
+def _place_images_scattered(page, doc, slide, images, left, top, width, bottom, page_w, page_h):
+    """Place scattered images centered below text, never overlapping."""
+    n = len(images)
+    if n == 0:
+        return
+
+    # Place all images in a row at the bottom portion of the content area
+    img_zone_top = top + int((bottom - top) * 0.55)
+    img_zone_h = bottom - img_zone_top
+    gap = 150000
+    per_img_w = (width - gap * max(n - 1, 0)) // max(n, 1)
+    per_img_w = min(per_img_w, int(width * 0.6))
+
+    total_row_w = per_img_w * n + gap * max(n - 1, 0)
+    start_x = left + (width - total_row_w) // 2
+
+    x = start_x
+    for im in images:
+        if x + 200000 > left + width:
+            break
+        _try_add_image_at(page, doc, slide, im["bbox"], x, img_zone_top, per_img_w, img_zone_h)
+        x += per_img_w + gap
+
+
+def _try_add_image_at(page, doc, slide, target_bbox, left, top, max_w, max_h):
+    """Try to find and add the matching image from the PDF, fitting into the given area."""
     target_rect = pymupdf.Rect(target_bbox)
 
     try:
@@ -630,8 +793,26 @@ def _try_add_image(page, doc, slide, target_bbox, left, top, width, height):
                             extracted = doc.extract_image(xref)
                             if extracted and extracted["ext"] in ("png", "jpeg", "jpg", "bmp", "gif", "tiff"):
                                 img_stream = compress_image(extracted["image"])
+                                # Get actual image dimensions for aspect ratio
+                                img = Image.open(BytesIO(extracted["image"]))
+                                img_aspect = img.width / img.height
+
+                                avail_aspect = max_w / max_h if max_h > 0 else 1
+                                if img_aspect > avail_aspect:
+                                    w = max_w
+                                    h = int(max_w / img_aspect)
+                                else:
+                                    h = max_h
+                                    w = int(max_h * img_aspect)
+
+                                # Center within the given area
+                                actual_left = left + (max_w - w) // 2
+                                actual_top = top + (max_h - h) // 2
+
                                 slide.shapes.add_picture(
-                                    img_stream, Emu(left), Emu(top), Emu(width), Emu(height),
+                                    img_stream,
+                                    Emu(actual_left), Emu(actual_top),
+                                    Emu(w), Emu(h),
                                 )
                                 return True
             except Exception:
@@ -641,14 +822,12 @@ def _try_add_image(page, doc, slide, target_bbox, left, top, width, height):
     return False
 
 
-# ── Section title page (sub-section intro within a chapter) ──
+# ── Section title page ──
 
 def make_section_intro_slide(prs, chapter_label, section_name):
-    """Create a section title slide for each PDF within a chapter."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_header_bar(slide, chapter_label)
 
-    # Centered section name
     txbox = slide.shapes.add_textbox(
         Emu(1000000), Emu(2200000), Emu(SLIDE_W - 2000000), Emu(2000000),
     )
@@ -664,7 +843,6 @@ def make_section_intro_slide(prs, chapter_label, section_name):
     run.font.name = "黑体"
     run.font.color.rgb = DARK_BLUE
 
-    # Decorative line
     line = slide.shapes.add_connector(
         1, Emu(3000000), Emu(4400000), Emu(SLIDE_W - 3000000), Emu(4400000),
     )
@@ -693,7 +871,6 @@ def main():
         chapter_label = f"{num} {title}" if num != "附录" else f"附录：{title}"
         print(f"\n--- {chapter_label} ---")
 
-        # Chapter navigation slide
         make_chapter_nav_slide(prs, chap_idx)
 
         for pdf_file in pdfs:
@@ -701,7 +878,6 @@ def main():
             section_name = os.path.splitext(pdf_file)[0]
             print(f"  {pdf_file}...", end="", flush=True)
 
-            # Section intro slide
             make_section_intro_slide(prs, chapter_label, section_name)
 
             doc = pymupdf.open(pdf_path)
@@ -709,17 +885,13 @@ def main():
 
             for page_num in range(n):
                 page = doc[page_num]
-                # Skip the PDF's own title page (page 0 usually)
-                # Page 0 is typically a cover with just title + author
                 if page_num == 0:
-                    # Check if it's a real title page (very few text blocks, large title)
                     td = page.get_text("dict")
                     text_blocks = [b for b in td["blocks"] if b["type"] == 0]
                     total_text = sum(
                         len("".join(s["text"] for s in l["spans"]))
                         for b in text_blocks for l in b["lines"]
                     )
-                    # If very little text, skip (it's just a decorative title page)
                     if total_text < 50:
                         continue
 
