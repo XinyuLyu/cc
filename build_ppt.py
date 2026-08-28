@@ -399,7 +399,8 @@ def parse_pdf_page(page):
             bbox = block["bbox"]
             w = bbox[2] - bbox[0]
             h = bbox[3] - bbox[1]
-            if w > 60 and h > 40:
+            # Skip tiny images and the recurring header logo (~144x154 in PDF coords ~11x12pt)
+            if w > 60 and h > 40 and not (w < 20 and h < 20):
                 image_blocks.append(bbox)
             continue
 
@@ -776,6 +777,57 @@ def _place_images_scattered(page, doc, slide, images, left, top, width, bottom, 
         x += per_img_w + gap
 
 
+def _extract_and_fix_image(doc, img_info):
+    """Extract image from PDF, handling SMask compositing and filtering bad images."""
+    xref = img_info[0]
+    smask = img_info[1]
+    img_w = img_info[2]
+    img_h = img_info[3]
+
+    # Skip the recurring header logo (144x154 on every page)
+    if img_w <= 200 and img_h <= 200:
+        return None
+
+    extracted = doc.extract_image(xref)
+    if not extracted or extracted["ext"] not in ("png", "jpeg", "jpg", "bmp", "gif", "tiff"):
+        return None
+
+    img = Image.open(BytesIO(extracted["image"]))
+
+    # Handle SMask (soft mask) — composite onto white background
+    if smask > 0:
+        try:
+            mask_data = doc.extract_image(smask)
+            if mask_data:
+                mask_img = Image.open(BytesIO(mask_data["image"])).convert("L")
+                if mask_img.size != img.size:
+                    mask_img = mask_img.resize(img.size, Image.LANCZOS)
+                # Composite: place image onto white background using mask
+                bg = Image.new("RGB", img.size, (255, 255, 255))
+                img_rgb = img.convert("RGB")
+                bg.paste(img_rgb, mask=mask_img)
+                img = bg
+        except Exception:
+            pass
+
+    # For RGBA images, composite onto white
+    if img.mode == "RGBA":
+        bg = Image.new("RGB", img.size, (255, 255, 255))
+        bg.paste(img, mask=img.split()[3])
+        img = bg
+
+    img = img.convert("RGB")
+
+    # Check if image is mostly black (broken extraction)
+    sample = img.resize((20, 20), Image.LANCZOS)
+    raw = sample.tobytes()
+    avg_brightness = sum(raw) / len(raw)
+    if avg_brightness < 30:
+        return None
+
+    return img
+
+
 def _try_add_image_at(page, doc, slide, target_bbox, left, top, max_w, max_h):
     """Try to find and add the matching image from the PDF, fitting into the given area."""
     target_rect = pymupdf.Rect(target_bbox)
@@ -790,36 +842,42 @@ def _try_add_image_at(page, doc, slide, target_bbox, left, top, max_w, max_h):
                     if img_rect.intersects(target_rect):
                         overlap = img_rect & target_rect
                         if overlap.width > target_rect.width * 0.5:
-                            extracted = doc.extract_image(xref)
-                            if extracted and extracted["ext"] in ("png", "jpeg", "jpg", "bmp", "gif", "tiff"):
-                                img_stream = compress_image(extracted["image"])
-                                # Get actual image dimensions for aspect ratio
-                                img = Image.open(BytesIO(extracted["image"]))
-                                img_aspect = img.width / img.height
+                            img = _extract_and_fix_image(doc, img_info)
+                            if img is None:
+                                continue
 
-                                avail_aspect = max_w / max_h if max_h > 0 else 1
-                                if img_aspect > avail_aspect:
-                                    w = max_w
-                                    h = int(max_w / img_aspect)
-                                else:
-                                    h = max_h
-                                    w = int(max_h * img_aspect)
+                            img_stream = compress_image(_img_to_bytes(img))
+                            img_aspect = img.width / img.height
 
-                                # Center within the given area
-                                actual_left = left + (max_w - w) // 2
-                                actual_top = top + (max_h - h) // 2
+                            avail_aspect = max_w / max_h if max_h > 0 else 1
+                            if img_aspect > avail_aspect:
+                                w = max_w
+                                h = int(max_w / img_aspect)
+                            else:
+                                h = max_h
+                                w = int(max_h * img_aspect)
 
-                                slide.shapes.add_picture(
-                                    img_stream,
-                                    Emu(actual_left), Emu(actual_top),
-                                    Emu(w), Emu(h),
-                                )
-                                return True
+                            actual_left = left + (max_w - w) // 2
+                            actual_top = top + (max_h - h) // 2
+
+                            slide.shapes.add_picture(
+                                img_stream,
+                                Emu(actual_left), Emu(actual_top),
+                                Emu(w), Emu(h),
+                            )
+                            return True
             except Exception:
                 continue
     except Exception:
         pass
     return False
+
+
+def _img_to_bytes(img):
+    """Convert PIL Image to bytes."""
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
 
 
 # ── Section title page ──
