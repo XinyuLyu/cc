@@ -1,0 +1,35 @@
+{
+  "scoring": {
+    "implementation": {
+      "raw_max": 80,
+      "final_max": 60,
+      "note": "lightweight unit-test rubric normalized by 0.75"
+    },
+    "performance": 20,
+    "analysis": {
+      "max": 20,
+      "questions": 4,
+      "per_question": 5,
+      "cap_policy": {
+        "0": "unanswered",
+        "2": "answered but no concrete own-code/experiment/case evidence",
+        "3": "some concrete evidence exists but required evidence is incomplete",
+        "5": "requested evidence is complete; semantic correctness remains teacher-graded"
+      }
+    }
+  },
+  "performance": {
+    "vsepp": {
+      "metric_name": "Rsum = six Recall values",
+      "reference_metric": null,
+      "zero_ratio": 0.5,
+      "full_ratio": 0.95
+    },
+    "caption": {
+      "metric_name": "Test BLEU-4",
+      "reference_metric": null,
+      "zero_ratio": 0.5,
+      "full_ratio": 0.95
+    }
+  }
+}
