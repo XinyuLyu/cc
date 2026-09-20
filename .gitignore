@@ -1,0 +1,8 @@
+# Test artifacts
+data/
+work/
+__pycache__/
+*.pyc
+
+# Environment
+.env

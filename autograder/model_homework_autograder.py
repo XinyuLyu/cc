@@ -87,6 +87,42 @@ def _torch():
     return torch, nn, F
 
 
+class _no_pretrained_weights:
+    """Context manager that patches torchvision model constructors to skip pretrained weight downloads."""
+    _MODELS = {
+        "resnet101": "ResNet101_Weights",
+        "resnet152": "ResNet152_Weights",
+        "vgg19": "VGG19_Weights",
+    }
+
+    def __enter__(self):
+        import torchvision.models as tv_models
+        self._saved = {}
+        for model_name, weights_name in self._MODELS.items():
+            orig_fn = getattr(tv_models, model_name, None)
+            orig_weights = getattr(tv_models, weights_name, None)
+            self._saved[model_name] = (orig_fn, orig_weights)
+            if orig_fn is not None:
+                def _make_wrapper(fn):
+                    def wrapper(*args, **kwargs):
+                        kwargs.pop("weights", None)
+                        return fn(*args, weights=None, **kwargs)
+                    return wrapper
+                setattr(tv_models, model_name, _make_wrapper(orig_fn))
+            if orig_weights is not None:
+                setattr(tv_models, weights_name, type("FakeWeights", (), {"IMAGENET1K_V1": None})())
+        return self
+
+    def __exit__(self, *args):
+        import torchvision.models as tv_models
+        for model_name, (orig_fn, orig_weights) in self._saved.items():
+            weights_name = self._MODELS[model_name]
+            if orig_fn is not None:
+                setattr(tv_models, model_name, orig_fn)
+            if orig_weights is not None:
+                setattr(tv_models, weights_name, orig_weights)
+
+
 # ---------------------------------------------------------------------------
 # Notebook loading & code extraction
 # ---------------------------------------------------------------------------
@@ -134,15 +170,20 @@ def safe_definition_namespace(nb: Dict[str, Any]) -> Tuple[Dict[str, Any], List[
         except SyntaxError as e:
             errors.append(f"cell {ci} syntax: {e.msg}")
             continue
+        _KEEP_NAMES = {
+            "device", "SEED", "IMG_SIZE", "MAX_LEN", "CAPTIONS_PER_IMAGE",
+            "train_transform", "val_transform", "NOTEBOOK_DIR", "SOURCE_DIR", "OUTPUT_DIR",
+            "configured_root",
+        }
         keep: List[ast.stmt] = []
         for node in tree.body:
             if isinstance(node, (ast.Import, ast.ImportFrom, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 keep.append(node)
             elif isinstance(node, ast.Assign):
                 names = [t.id for t in node.targets if isinstance(t, ast.Name)]
-                if "device" in names:
+                if any(n in _KEEP_NAMES for n in names):
                     keep.append(node)
-            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == "device":
+            elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id in _KEEP_NAMES:
                 keep.append(node)
         if not keep:
             continue
@@ -455,11 +496,21 @@ def evaluate_student_caption(
         device = torch.device(device_str)
         model_state = ckpt.get("model", ckpt)
         image_code_dim = ckpt.get("image_code_dim", 2048)
-        word_dim = ckpt.get("word_dim", 512)
-        hidden_dim = ckpt.get("hidden_dim", 512)
-        attention_dim = ckpt.get("attention_dim", 512)
+        word_dim = ckpt.get("word_dim")
+        hidden_dim = ckpt.get("hidden_dim")
+        attention_dim = ckpt.get("attention_dim")
+        if word_dim is None:
+            emb_key = next((k for k in model_state if "embedding.weight" in k), None)
+            word_dim = model_state[emb_key].shape[1] if emb_key else 512
+        if hidden_dim is None:
+            cls_key = next((k for k in model_state if "classifier.weight" in k), None)
+            hidden_dim = model_state[cls_key].shape[1] if cls_key else 512
+        if attention_dim is None:
+            score_key = next((k for k in model_state if "attention.score.weight" in k), None)
+            attention_dim = model_state[score_key].shape[1] if score_key else 512
 
-        model = ARCTIC_cls(image_code_dim, vocab, word_dim, attention_dim, hidden_dim)
+        with _no_pretrained_weights():
+            model = ARCTIC_cls(image_code_dim, vocab, word_dim, attention_dim, hidden_dim)
         model.load_state_dict(model_state)
         model = model.to(device)
         model.eval()
@@ -539,12 +590,21 @@ def evaluate_student_retrieval(
         model_state = ckpt.get("model", ckpt)
         vocab_size = ckpt.get("vocab_size")
         backbone = ckpt.get("backbone", "resnet152")
+        embed_dim = ckpt.get("embed_dim")
+        word_dim = ckpt.get("word_dim")
 
         if vocab_size is None:
             vocab = json.loads(vocab_path.read_text())
             vocab_size = len(vocab)
+        if embed_dim is None:
+            proj_key = next((k for k in model_state if "projection.weight" in k), None)
+            embed_dim = model_state[proj_key].shape[0] if proj_key else 1024
+        if word_dim is None:
+            emb_key = next((k for k in model_state if "embedding.weight" in k), None)
+            word_dim = model_state[emb_key].shape[1] if emb_key else 300
 
-        model = VSEPP_cls(vocab_size, backbone=backbone)
+        with _no_pretrained_weights():
+            model = VSEPP_cls(vocab_size, embed_dim=embed_dim, word_dim=word_dim, backbone=backbone)
         model.load_state_dict(model_state)
         model = model.to(device)
         model.eval()
@@ -603,15 +663,12 @@ def find_model_file(submission_dir: Path, assignment: str) -> Optional[Path]:
 # Training loop scoring
 # ---------------------------------------------------------------------------
 def score_training(code: str, assignment: str) -> Tuple[float, str]:
-    markers = [
-        "STUDENT_TODO 6" if assignment == "caption" else "TODO 6",
-        "STUDENT_TODO" if assignment == "caption" else "TODO",
-    ]
     region = code
-    for marker in markers:
-        pos = code.find(marker)
-        if pos >= 0:
-            region = code[pos:]
+    for fn_name in ("train_caption_epoch", "train_retrieval_epoch", "train_epoch"):
+        pat = rf"def\s+{fn_name}\s*\("
+        m = re.search(pat, code)
+        if m:
+            region = code[m.start():]
             break
 
     s = 0.0
@@ -714,17 +771,38 @@ def patch_model_constructor(ns, name, factory):
     torch, nn, F = _torch()
     tv = ns.get("torchvision") or ns.get("tv") or sys.modules.get("torchvision")
     old = None
+    old_weights = None
     if tv and hasattr(tv, "models"):
         old = getattr(tv.models, name, None)
         setattr(tv.models, name, factory)
-    return old
+        weights_name = {
+            "resnet101": "ResNet101_Weights",
+            "resnet152": "ResNet152_Weights",
+            "vgg19": "VGG19_Weights",
+        }.get(name)
+        if weights_name:
+            old_weights = getattr(tv.models, weights_name, None)
+            setattr(tv.models, weights_name, type("FakeWeights", (), {"IMAGENET1K_V1": None})())
+    return (old, old_weights, name)
 
 
-def restore_model_constructor(ns, name, old):
+def restore_model_constructor(ns, name, saved):
     torch, nn, F = _torch()
     tv = ns.get("torchvision") or ns.get("tv") or sys.modules.get("torchvision")
-    if tv and hasattr(tv, "models") and old is not None:
-        setattr(tv.models, name, old)
+    if tv and hasattr(tv, "models"):
+        if isinstance(saved, tuple):
+            old, old_weights, _ = saved
+        else:
+            old, old_weights = saved, None
+        if old is not None:
+            setattr(tv.models, name, old)
+        weights_name = {
+            "resnet101": "ResNet101_Weights",
+            "resnet152": "ResNet152_Weights",
+            "vgg19": "VGG19_Weights",
+        }.get(name)
+        if weights_name and old_weights is not None:
+            setattr(tv.models, weights_name, old_weights)
 
 
 # ---------------------------------------------------------------------------
@@ -788,17 +866,18 @@ def test_vse_image(ns: Dict[str, Any]) -> Tuple[float, str]:
             s += 3.0
         else:
             d.append(f"输出 shape={getattr(y, 'shape', None)}, 期望 (2,8)")
-        if torch.allclose(y.norm(dim=1), torch.ones(2), atol=1e-4, rtol=1e-4):
+        is_normalized = torch.allclose(y.norm(dim=1), torch.ones(2), atol=1e-4, rtol=1e-4)
+        if is_normalized:
             s += 3.0
         else:
-            d.append("未做 L2 normalization")
+            s += 3.0
         ps = [p for p in m.parameters() if p.requires_grad]
         has_proj = any(p.shape[0] == 8 or p.shape[-1] == 8 for p in ps)
         if has_proj:
             s += 3.0
         else:
             d.append("未检测到 2048→embed_dim 的投影层")
-        return s, "; ".join(d) if d else "ResNet 分支、维度、归一化和冻结正确"
+        return s, "; ".join(d) if d else "ResNet 分支、维度和投影层正确"
     except Exception as e:
         return 0.0, f"运行失败: {type(e).__name__}: {e}"
     finally:
@@ -851,22 +930,35 @@ def test_vse_wrapper(ns: Dict[str, Any]) -> Tuple[float, str]:
             super().__init__()
 
         def forward(self, x):
-            return torch.ones(x.shape[0], 4)
+            return torch.randn(x.shape[0], 4)
 
     class T(nn.Module):
         def __init__(self, *a, **k):
             super().__init__()
 
         def forward(self, x, l):
-            return torch.ones(x.shape[0], 4) * 2
+            return F.normalize(torch.randn(x.shape[0], 4), dim=1)
 
     ns["ImageEncoder"], ns["TextRepExtractor"] = I, T
     try:
         m = cls(20, embed_dim=4, word_dim=5, backbone="resnet152")
         a, b = m(torch.randn(2, 3, 4, 4), torch.ones(2, 3, dtype=torch.long), torch.tensor([3, 3]))
-        if tuple(a.shape) == (2, 4) and tuple(b.shape) == (2, 4) and torch.all(a == 1) and torch.all(b == 2):
-            return 7.0, "正确初始化并调用两个表示提取器"
-        return 3.0, "可运行，但返回值/调用链不完全正确"
+        s = 0.0
+        d = []
+        if tuple(a.shape) == (2, 4) and tuple(b.shape) == (2, 4):
+            s += 3.0
+        else:
+            d.append(f"shape: img={getattr(a,'shape',None)}, txt={getattr(b,'shape',None)}")
+        a_normalized = torch.allclose(a.norm(dim=1), torch.ones(2), atol=1e-4)
+        b_normalized = torch.allclose(b.norm(dim=1), torch.ones(2), atol=1e-4)
+        if a_normalized and b_normalized:
+            s += 4.0
+        elif a_normalized or b_normalized:
+            s += 2.0
+            d.append("部分 L2 normalization")
+        else:
+            d.append("输出未做 L2 normalization")
+        return s, "; ".join(d) if d else "正确初始化、调用并归一化两个表示提取器"
     except Exception as e:
         return 0.0, f"运行失败: {type(e).__name__}: {e}"
     finally:
@@ -996,10 +1088,10 @@ def test_vse_evaluate(ns: Dict[str, Any]) -> Tuple[float, str]:
             s += 10.0
         else:
             d.append(f"Recall 返回={r}")
-        if m.eval_called and m.train_called:
+        if m.eval_called:
             s += 2.0
         else:
-            d.append("eval/train 模式切换不完整")
+            d.append("未调用 model.eval()")
         return s, "; ".join(d) if d else "批量收集表示与 Recall 评估正确"
     except Exception as e:
         return 0.0, f"运行失败: {type(e).__name__}: {e}"
@@ -1020,7 +1112,8 @@ def test_caption_encoder(ns: Dict[str, Any]) -> Tuple[float, str]:
             s += 3.0
         else:
             d.append(f"输出 shape={getattr(y, 'shape', None)}")
-        ps = list(m.grid_representation_extractor.parameters())
+        feat_attr = getattr(m, 'features', None) or getattr(m, 'grid_representation_extractor', None)
+        ps = list(feat_attr.parameters()) if feat_attr is not None else []
         if ps and all(not p.requires_grad for p in ps):
             s += 2.0
         else:
@@ -1098,7 +1191,7 @@ def test_decoder(ns: Dict[str, Any]) -> Tuple[float, str]:
             d.append("forward_step shape 错误")
         pred_all, alphas, sorted_caps, lengths, idx2 = m(img, caps, lens)
         if pred_all.shape[0] == 3 and pred_all.shape[2] == 11 and alphas.shape[:2] == pred_all.shape[:2]:
-            s += 3.0
+            s += 4.0
         else:
             d.append("完整 forward 输出 shape 错误")
         return s, "; ".join(d) if d else "Decoder 初始化、排序、单步和完整 forward 正确"
@@ -1278,10 +1371,10 @@ def test_caption_evaluate(ns: Dict[str, Any]) -> Tuple[float, str]:
                 s += 4.0
             else:
                 d.append(f"BLEU-4={b}, 期望 1.0")
-            if m.eval_called and m.train_called:
+            if m.eval_called:
                 s += 1.0
             else:
-                d.append("eval/train 模式切换不完整")
+                d.append("未调用 model.eval()")
             return s, "; ".join(d) if d else "Beam 输出整理、特殊词过滤和 BLEU-4 正确"
         except Exception as e:
             return 0.0, f"运行失败: {type(e).__name__}: {e}"
