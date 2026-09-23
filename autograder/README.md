@@ -40,6 +40,8 @@ score = 20 × (metric/reference − zero_ratio) / (full_ratio − zero_ratio)
 - `dataset_flickr8k.json` — 完整的数据集标注（含测试集 captions）
 - `Images/` — Flickr8k 图片目录
 
+> **注意：** `dataset_flickr8k.json` 中必须包含 `split` 为 `"test"` 的图片条目，否则 Performance 评测会报错「教师数据没有test划分」。学生下载的数据子集可能只含 train/val 划分，需使用完整 Flickr8k 数据集（Karpathy split）。
+
 ### 2. 评测单个学生
 
 ```bash
